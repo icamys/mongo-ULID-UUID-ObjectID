@@ -25,12 +25,15 @@ func main() {
 		Coll: coll,
 	}
 
+	start := time.Now()
 	results, err := tester.Run()
 	if err != nil {
 		panic(err)
 	}
+	testDuration := time.Now().Sub(start)
 
 	PrintTable(results)
+	fmt.Printf("\nTotal execution time: %s\n", testDuration.Round(time.Millisecond).String())
 }
 
 func mustConnect() (*mongo.Collection, func()) {

@@ -129,15 +129,6 @@ func PrintTable(r *TesterResults) {
 	}
 }
 
-func calcDiffPercent(baseline, newVal int64) float64 {
-	var k float64 = 1
-	if newVal > baseline {
-		k = -1
-	}
-
-	return k * (float64(newVal) - float64(baseline)) * 100 / float64(baseline)
-}
-
 type Tester struct {
 	Coll *mongo.Collection
 }
@@ -480,4 +471,13 @@ func pickRandomObjectID(docs []interface{}, n int) []primitive.ObjectID {
 		result[i] = d.(mongoDocumentObjectID).ID
 	}
 	return result
+}
+
+func calcDiffPercent(baseline, newVal int64) float64 {
+	var k float64 = 1
+	if newVal > baseline {
+		k = -1
+	}
+
+	return k * (float64(newVal) - float64(baseline)) * 100 / float64(baseline)
 }
