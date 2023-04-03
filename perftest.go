@@ -12,27 +12,22 @@ import (
 )
 
 func main() {
-	client, cleanup := mustConnectToDb()
+	coll, cleanup := mustConnect()
 	defer cleanup()
 
-	results := runTests(client)
+	tester := Tester{
+		Coll: coll,
+	}
 
-	fmt.Println(results)
+	results, err := tester.Run()
+	if err != nil {
+		panic(err)
+	}
+
+	PrintTable(results)
 }
 
-type testResults struct{}
-
-func (r *testResults) String() string {
-	return ""
-}
-
-func runTests(client *mongo.Client) *testResults {
-	results := new(testResults)
-
-	return results
-}
-
-func mustConnectToDb() (*mongo.Client, func()) {
+func mustConnect() (*mongo.Collection, func()) {
 	const timeout = 1 * time.Second
 	ctx := context.Background()
 	uri := os.Getenv("MONGO_URI")
@@ -57,6 +52,11 @@ func mustConnectToDb() (*mongo.Client, func()) {
 			panic(err)
 		}
 	}
+	const dbName = "perftest"
+	const collectionName = "perftest"
 
-	return client, cleanup
+	db := client.Database(dbName)
+	collection := db.Collection(collectionName)
+
+	return collection, cleanup
 }

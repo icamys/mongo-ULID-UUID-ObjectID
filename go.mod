@@ -2,7 +2,10 @@ module github.com/icamys/mongo.ULID-vs-ObjectID
 
 go 1.20
 
-require go.mongodb.org/mongo-driver v1.11.3
+require (
+	github.com/oklog/ulid/v2 v2.1.0
+	go.mongodb.org/mongo-driver v1.11.3
+)
 
 require (
 	github.com/golang/snappy v0.0.1 // indirect
