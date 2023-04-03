@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/oklog/ulid/v2"
@@ -22,33 +23,43 @@ type TesterResults struct {
 	InsertsBatched1M1K  *InsertBatchesTestResult
 	InsertsBatched1M5K  *InsertBatchesTestResult
 	InsertsBatched1M10K *InsertBatchesTestResult
+	Insert1M            *InsertTestResult
 }
 
 func PrintTable(r *TesterResults) {
-	header := []string{"", "ObjectId", "ULID", "% perf diff"}
+	var header = []string{"", "ObjectId", "ULID", "% perf diff"}
 	var data [][]string
 
-	data = append(data, []string{
-		"1M inserts batched, batch size = 1k",
-		r.InsertsBatched1M1K.ObjectIDDuration.Round(1 * time.Millisecond).String(),
-		r.InsertsBatched1M1K.ULIDDuration.Round(1 * time.Millisecond).String(),
-		fmt.Sprintf("%.2f%%", calcTimeDiffPercent(r.InsertsBatched1M1K.ObjectIDDuration, r.InsertsBatched1M1K.ULIDDuration)),
-	})
-
-	data = append(data, []string{
-		"1M inserts batched, batch size = 5k",
-		r.InsertsBatched1M5K.ObjectIDDuration.Round(1 * time.Millisecond).String(),
-		r.InsertsBatched1M5K.ULIDDuration.Round(1 * time.Millisecond).String(),
-		fmt.Sprintf("%.2f%%", calcTimeDiffPercent(r.InsertsBatched1M5K.ObjectIDDuration, r.InsertsBatched1M5K.ULIDDuration)),
-	})
-
-	data = append(data, []string{
-		"1M inserts batched, batch size = 10k",
-		r.InsertsBatched1M10K.ObjectIDDuration.Round(1 * time.Millisecond).String(),
-		r.InsertsBatched1M10K.ULIDDuration.Round(1 * time.Millisecond).String(),
-		fmt.Sprintf("%.2f%%", calcTimeDiffPercent(
-			r.InsertsBatched1M10K.ObjectIDDuration, r.InsertsBatched1M10K.ULIDDuration)),
-	})
+	data = append(data,
+		[]string{
+			"1M inserts batched, batch size = 1k",
+			r.InsertsBatched1M1K.ObjectIDDuration.Round(1 * time.Millisecond).String(),
+			r.InsertsBatched1M1K.ULIDDuration.Round(1 * time.Millisecond).String(),
+			fmt.Sprintf("%.2f%%", calcTimeDiffPercent(
+				r.InsertsBatched1M1K.ObjectIDDuration, r.InsertsBatched1M1K.ULIDDuration)),
+		},
+		[]string{
+			"1M inserts batched, batch size = 5k",
+			r.InsertsBatched1M5K.ObjectIDDuration.Round(1 * time.Millisecond).String(),
+			r.InsertsBatched1M5K.ULIDDuration.Round(1 * time.Millisecond).String(),
+			fmt.Sprintf("%.2f%%", calcTimeDiffPercent(
+				r.InsertsBatched1M5K.ObjectIDDuration, r.InsertsBatched1M5K.ULIDDuration)),
+		},
+		[]string{
+			"1M inserts batched, batch size = 10k",
+			r.InsertsBatched1M10K.ObjectIDDuration.Round(1 * time.Millisecond).String(),
+			r.InsertsBatched1M10K.ULIDDuration.Round(1 * time.Millisecond).String(),
+			fmt.Sprintf("%.2f%%", calcTimeDiffPercent(
+				r.InsertsBatched1M10K.ObjectIDDuration, r.InsertsBatched1M10K.ULIDDuration)),
+		},
+		[]string{
+			"1M inserts",
+			r.Insert1M.ObjectIDDuration.Round(1 * time.Millisecond).String(),
+			r.Insert1M.ULIDDuration.Round(1 * time.Millisecond).String(),
+			fmt.Sprintf("%.2f%%", calcTimeDiffPercent(
+				r.Insert1M.ObjectIDDuration, r.Insert1M.ULIDDuration)),
+		},
+	)
 
 	fmt.Println(
 		"|", fmt.Sprintf("%-45s", header[0]),
@@ -57,10 +68,10 @@ func PrintTable(r *TesterResults) {
 		"|", fmt.Sprintf("%-12s", header[3]),
 		"|")
 	fmt.Println(
-		"|", "---------------------------------------------",
-		"|", "----------",
-		"|", "------------------------------------------",
-		"|", "------------",
+		"|", strings.Repeat("-", 45),
+		"|", strings.Repeat("-", 10),
+		"|", strings.Repeat("-", 22),
+		"|", strings.Repeat("-", 12),
 		"|")
 
 	for _, row := range data {
@@ -90,19 +101,31 @@ func (t *Tester) Run() (*TesterResults, error) {
 	var err error
 	results := new(TesterResults)
 
-	results.InsertsBatched1M1K, err = t.testInsertsBatched(1000000, 1000)
+	const (
+		OneMillion   = 1000000
+		OneThousand  = 1000
+		FiveThousand = 5000
+		TenThousand  = 10000
+	)
+
+	results.InsertsBatched1M1K, err = t.testInsertsBatched(OneMillion, OneThousand)
 	if err != nil {
 		return nil, fmt.Errorf("failed to run insert batches test: %w", err)
 	}
 
-	results.InsertsBatched1M5K, err = t.testInsertsBatched(1000000, 5000)
+	results.InsertsBatched1M5K, err = t.testInsertsBatched(OneMillion, FiveThousand)
 	if err != nil {
 		return nil, fmt.Errorf("failed to run insert batches test: %w", err)
 	}
 
-	results.InsertsBatched1M10K, err = t.testInsertsBatched(1000000, 10000)
+	results.InsertsBatched1M10K, err = t.testInsertsBatched(OneMillion, TenThousand)
 	if err != nil {
 		return nil, fmt.Errorf("failed to run insert batches test: %w", err)
+	}
+
+	results.Insert1M, err = t.testInserts(OneMillion)
+	if err != nil {
+		return nil, fmt.Errorf("failed to run inserts test: %w", err)
 	}
 
 	return results, nil
@@ -121,7 +144,7 @@ func (t *Tester) testInsertsBatched(totalDocs, batchSize int) (*InsertBatchesTes
 	{
 		start = time.Now()
 		if err := t.insertDocumentsInBatches(batchSize, generateDocsUlid(totalDocs)); err != nil {
-			return nil, fmt.Errorf("error on insert documents in batches: %w", err)
+			return nil, fmt.Errorf("error on insert documents in batches test run: %w", err)
 		}
 		result.ULIDDuration = time.Now().Sub(start)
 		if err := t.cleanCollection(); err != nil {
@@ -132,7 +155,42 @@ func (t *Tester) testInsertsBatched(totalDocs, batchSize int) (*InsertBatchesTes
 	{
 		start = time.Now()
 		if err := t.insertDocumentsInBatches(batchSize, generateDocsObjectID(totalDocs)); err != nil {
-			return nil, fmt.Errorf("error on insert documents in batches: %w", err)
+			return nil, fmt.Errorf("error on insert documents in batches test run: %w", err)
+		}
+		result.ObjectIDDuration = time.Now().Sub(start)
+		if err := t.cleanCollection(); err != nil {
+			return nil, fmt.Errorf("collection cleanup error: %w", err)
+		}
+	}
+
+	return result, nil
+}
+
+type InsertTestResult struct {
+	ULIDDuration     time.Duration
+	ObjectIDDuration time.Duration
+}
+
+func (t *Tester) testInserts(totalDocs int) (*InsertTestResult, error) {
+	var start time.Time
+
+	result := new(InsertTestResult)
+
+	{
+		start = time.Now()
+		if err := t.insertDocuments(generateDocsUlid(totalDocs)); err != nil {
+			return nil, fmt.Errorf("error on insert documents test run: %w", err)
+		}
+		result.ULIDDuration = time.Now().Sub(start)
+		if err := t.cleanCollection(); err != nil {
+			return nil, fmt.Errorf("collection cleanup error: %w", err)
+		}
+	}
+
+	{
+		start = time.Now()
+		if err := t.insertDocuments(generateDocsObjectID(totalDocs)); err != nil {
+			return nil, fmt.Errorf("error on insert documents test run: %w", err)
 		}
 		result.ObjectIDDuration = time.Now().Sub(start)
 		if err := t.cleanCollection(); err != nil {
@@ -144,8 +202,6 @@ func (t *Tester) testInsertsBatched(totalDocs, batchSize int) (*InsertBatchesTes
 }
 
 func (t *Tester) insertDocumentsInBatches(batchSize int, docs []interface{}) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 
 	totalDocs := len(docs)
 
@@ -156,10 +212,25 @@ func (t *Tester) insertDocumentsInBatches(batchSize int, docs []interface{}) err
 		} else {
 			end = start + batchSize
 		}
-
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		_, err := t.Coll.InsertMany(ctx, docs[start:end])
+		cancel()
 		if err != nil {
 			return fmt.Errorf("error inserting documents in batch: %w", err)
+		}
+	}
+	return nil
+}
+
+func (t *Tester) insertDocuments(docs []interface{}) error {
+	totalDocs := len(docs)
+
+	for i := 0; i < totalDocs; i += 1 {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_, err := t.Coll.InsertOne(ctx, docs[i])
+		cancel()
+		if err != nil {
+			return fmt.Errorf("error inserting document: %w", err)
 		}
 	}
 	return nil
