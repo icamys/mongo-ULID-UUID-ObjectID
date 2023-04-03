@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/oklog/ulid/v2"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsoncodec"
@@ -32,7 +33,9 @@ func main() {
 	}
 	testDuration := time.Now().Sub(start)
 
-	PrintTable(results)
+	printer := new(TablePrinter)
+	printer.Print(results)
+
 	fmt.Printf("\nTotal execution time: %s\n", testDuration.Round(time.Millisecond).String())
 }
 
@@ -42,8 +45,10 @@ func mustConnect() (*mongo.Collection, func()) {
 	uri := os.Getenv("MONGO_URI")
 
 	registry := bson.NewRegistryBuilder().
-		RegisterTypeEncoder(uuidType, bsoncodec.ValueEncoderFunc(ULIDEncodeValue)).
-		RegisterTypeDecoder(uuidType, bsoncodec.ValueDecoderFunc(ULIDDecodeValue)).
+		RegisterTypeEncoder(ulidType, bsoncodec.ValueEncoderFunc(ULIDEncodeValue)).
+		RegisterTypeDecoder(ulidType, bsoncodec.ValueDecoderFunc(ULIDDecodeValue)).
+		RegisterTypeEncoder(uuidType, bsoncodec.ValueEncoderFunc(UUIDEncodeValue)).
+		RegisterTypeDecoder(uuidType, bsoncodec.ValueDecoderFunc(UUIDDecodeValue)).
 		Build()
 
 	connCtx, connCancel := context.WithTimeout(ctx, timeout)
@@ -75,11 +80,12 @@ func mustConnect() (*mongo.Collection, func()) {
 	return collection, cleanup
 }
 
-var uuidType = reflect.TypeOf(ulid.ULID{})
+var uuidType = reflect.TypeOf(uuid.UUID{})
+var ulidType = reflect.TypeOf(ulid.ULID{})
 
 func ULIDEncodeValue(_ bsoncodec.EncodeContext, vw bsonrw.ValueWriter, val reflect.Value) error {
-	if !val.IsValid() || val.Type() != uuidType {
-		return bsoncodec.ValueEncoderError{Name: "ULIDEncodeValue", Types: []reflect.Type{uuidType}, Received: val}
+	if !val.IsValid() || val.Type() != ulidType {
+		return bsoncodec.ValueEncoderError{Name: "ULIDEncodeValue", Types: []reflect.Type{ulidType}, Received: val}
 	}
 	b, ok := val.Interface().(ulid.ULID)
 	if !ok {
@@ -94,8 +100,8 @@ func ULIDEncodeValue(_ bsoncodec.EncodeContext, vw bsonrw.ValueWriter, val refle
 }
 
 func ULIDDecodeValue(_ bsoncodec.DecodeContext, vr bsonrw.ValueReader, val reflect.Value) error {
-	if !val.CanSet() || val.Type() != uuidType {
-		return bsoncodec.ValueDecoderError{Name: "ULIDDecodeValue", Types: []reflect.Type{uuidType}, Received: val}
+	if !val.CanSet() || val.Type() != ulidType {
+		return bsoncodec.ValueDecoderError{Name: "ULIDDecodeValue", Types: []reflect.Type{ulidType}, Received: val}
 	}
 
 	var data []byte
@@ -121,5 +127,56 @@ func ULIDDecodeValue(_ bsoncodec.DecodeContext, vr bsonrw.ValueReader, val refle
 		return fmt.Errorf("failed to read ULID value: %w", err)
 	}
 	val.Set(reflect.ValueOf(ulid.ULID(data)))
+	return nil
+}
+
+func UUIDEncodeValue(_ bsoncodec.EncodeContext, vw bsonrw.ValueWriter, val reflect.Value) error {
+	if !val.IsValid() || val.Type() != uuidType {
+		return bsoncodec.ValueEncoderError{Name: "UUIDEncodeValue", Types: []reflect.Type{uuidType}, Received: val}
+	}
+	b, ok := val.Interface().(uuid.UUID)
+	if !ok {
+		return fmt.Errorf("failed to convert interface of type %s to %s",
+			reflect.TypeOf(val.Interface()).String(), reflect.TypeOf(b))
+	}
+
+	if err := vw.WriteBinaryWithSubtype(b[:], bsontype.BinaryUUID); err != nil {
+		return fmt.Errorf("failed to write binary: %w", err)
+	}
+	return nil
+}
+
+func UUIDDecodeValue(_ bsoncodec.DecodeContext, vr bsonrw.ValueReader, val reflect.Value) error {
+	if !val.CanSet() || val.Type() != uuidType {
+		return bsoncodec.ValueDecoderError{Name: "UUIDDecodeValue", Types: []reflect.Type{uuidType}, Received: val}
+	}
+
+	var data []byte
+	var subtype byte
+	var err error
+
+	//nolint:exhaustive // the rest of types are covered by the `default` branch
+	switch vrType := vr.Type(); vrType {
+	case bsontype.Binary:
+		data, subtype, err = vr.ReadBinary()
+		if subtype != bsontype.BinaryUUID {
+			return fmt.Errorf("unsupported binary subtype %v for UUID", subtype)
+		}
+	case bsontype.Null:
+		err = vr.ReadNull()
+	case bsontype.Undefined:
+		err = vr.ReadUndefined()
+	default:
+		return fmt.Errorf("cannot decode %v into a UUID", vrType)
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to read UUID value: %w", err)
+	}
+	uuidBytes, err := uuid.FromBytes(data)
+	if err != nil {
+		return fmt.Errorf("failed to read UUID from bytes: %w", err)
+	}
+	val.Set(reflect.ValueOf(uuidBytes))
 	return nil
 }

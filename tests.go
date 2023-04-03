@@ -4,17 +4,24 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/oklog/ulid/v2"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
+func init() {
+	uuid.EnableRandPool()
+}
+
 type mongoDocumentULID struct {
 	ID ulid.ULID `bson:"_id"`
+}
+type mongoDocumentUUID struct {
+	ID uuid.UUID `bson:"_id"`
 }
 type mongoDocumentObjectID struct {
 	ID primitive.ObjectID `bson:"_id"`
@@ -27,106 +34,6 @@ type TesterResults struct {
 	Insert1M                  *InsertTestResult
 	InsertsBatchedPres10M10K  *InsertBatchesWithPresentTestResult
 	InsertsBatchedPres10M100K *InsertBatchesWithPresentTestResult
-}
-
-func PrintTable(r *TesterResults) {
-	var header = []string{"Test case", "ObjectId", "ULID", "% diff"}
-	var data [][4]string
-
-	data = append(data,
-		[4]string{
-			"1M inserts batched, batch size = 1k",
-			r.InsertsBatched1M1K.ObjectIDDuration.Round(1 * time.Millisecond).String(),
-			r.InsertsBatched1M1K.ULIDDuration.Round(1 * time.Millisecond).String(),
-			fmt.Sprintf("%.2f%%", calcDiffPercent(
-				r.InsertsBatched1M1K.ObjectIDDuration.Microseconds(),
-				r.InsertsBatched1M1K.ULIDDuration.Microseconds(),
-			)),
-		},
-		[4]string{
-			"1M inserts batched, batch size = 5k",
-			r.InsertsBatched1M5K.ObjectIDDuration.Round(1 * time.Millisecond).String(),
-			r.InsertsBatched1M5K.ULIDDuration.Round(1 * time.Millisecond).String(),
-			fmt.Sprintf("%.2f%%", calcDiffPercent(
-				r.InsertsBatched1M5K.ObjectIDDuration.Microseconds(),
-				r.InsertsBatched1M5K.ULIDDuration.Microseconds(),
-			)),
-		},
-		[4]string{
-			"1M inserts batched, batch size = 10k",
-			r.InsertsBatched1M10K.ObjectIDDuration.Round(1 * time.Millisecond).String(),
-			r.InsertsBatched1M10K.ULIDDuration.Round(1 * time.Millisecond).String(),
-			fmt.Sprintf("%.2f%%", calcDiffPercent(
-				r.InsertsBatched1M10K.ObjectIDDuration.Microseconds(),
-				r.InsertsBatched1M10K.ULIDDuration.Microseconds(),
-			)),
-		},
-		[4]string{
-			"1M inserts",
-			r.Insert1M.ObjectIDDuration.Round(1 * time.Millisecond).String(),
-			r.Insert1M.ULIDDuration.Round(1 * time.Millisecond).String(),
-			fmt.Sprintf("%.2f%%", calcDiffPercent(
-				r.Insert1M.ObjectIDDuration.Microseconds(),
-				r.Insert1M.ULIDDuration.Microseconds(),
-			)),
-		},
-		[4]string{
-			"10M inserts batched, 10M documents already present, batch size = 10k",
-			r.InsertsBatchedPres10M10K.ObjectIDInsertDuration.Round(1 * time.Millisecond).String(),
-			r.InsertsBatchedPres10M10K.ULIDInsertDuration.Round(1 * time.Millisecond).String(),
-			fmt.Sprintf("%.2f%%", calcDiffPercent(
-				r.InsertsBatchedPres10M10K.ObjectIDInsertDuration.Microseconds(),
-				r.InsertsBatchedPres10M10K.ULIDInsertDuration.Microseconds(),
-			)),
-		},
-		[4]string{
-			"10M inserts batched, 10M documents already present, batch size = 100k",
-			r.InsertsBatchedPres10M100K.ObjectIDInsertDuration.Round(1 * time.Millisecond).String(),
-			r.InsertsBatchedPres10M100K.ULIDInsertDuration.Round(1 * time.Millisecond).String(),
-			fmt.Sprintf("%.2f%%", calcDiffPercent(
-				r.InsertsBatchedPres10M100K.ObjectIDInsertDuration.Microseconds(),
-				r.InsertsBatchedPres10M100K.ULIDInsertDuration.Microseconds(),
-			)),
-		},
-		[4]string{
-			"Index size with 20M docs in bytes",
-			byteCountIEC(r.InsertsBatchedPres10M100K.ObjectIDIdxSize),
-			byteCountIEC(r.InsertsBatchedPres10M100K.ULIDIdxSize),
-			fmt.Sprintf("%.2f%%", calcDiffPercent(
-				r.InsertsBatchedPres10M100K.ObjectIDIdxSize, r.InsertsBatchedPres10M100K.ULIDIdxSize)),
-		},
-		[4]string{
-			"Get by ID from 20M docs, avg duration",
-			r.InsertsBatchedPres10M100K.ObjectIDGetDuration.Round(1 * time.Microsecond).String(),
-			r.InsertsBatchedPres10M100K.ULIDGetDuration.Round(1 * time.Microsecond).String(),
-			fmt.Sprintf("%.2f%%", calcDiffPercent(
-				r.InsertsBatchedPres10M100K.ObjectIDGetDuration.Microseconds(),
-				r.InsertsBatchedPres10M100K.ULIDGetDuration.Microseconds(),
-			)),
-		},
-	)
-
-	fmt.Println(
-		"|", fmt.Sprintf("%-70s", header[0]),
-		"|", fmt.Sprintf("%-10s", header[1]),
-		"|", fmt.Sprintf("%-22s", header[2]),
-		"|", fmt.Sprintf("%-12s", header[3]),
-		"|")
-	fmt.Println(
-		"|", strings.Repeat("-", 70),
-		"|", strings.Repeat("-", 10),
-		"|", strings.Repeat("-", 22),
-		"|", strings.Repeat("-", 12),
-		"|")
-
-	for _, row := range data {
-		fmt.Println(
-			"|", fmt.Sprintf("%-70s", row[0]),
-			"|", fmt.Sprintf("%-10s", row[1]),
-			"|", fmt.Sprintf("%-22s", row[2]),
-			"|", fmt.Sprintf("%-12s", row[3]),
-			"|")
-	}
 }
 
 type Tester struct {
@@ -181,6 +88,7 @@ func (t *Tester) Run() (*TesterResults, error) {
 
 type InsertBatchesTestResult struct {
 	ULIDDuration     time.Duration
+	UUIDDuration     time.Duration
 	ObjectIDDuration time.Duration
 }
 
@@ -202,6 +110,17 @@ func (t *Tester) testInsertBatches(totalDocs, batchSize int) (*InsertBatchesTest
 
 	{
 		start = time.Now()
+		if err := t.insertDocumentsInBatches(batchSize, generateDocsUUID(totalDocs)); err != nil {
+			return nil, fmt.Errorf("error on insert documents in batches test run: %w", err)
+		}
+		result.UUIDDuration = time.Now().Sub(start)
+		if err := t.dropCollection(); err != nil {
+			return nil, fmt.Errorf("collection cleanup error: %w", err)
+		}
+	}
+
+	{
+		start = time.Now()
 		if err := t.insertDocumentsInBatches(batchSize, generateDocsObjectID(totalDocs)); err != nil {
 			return nil, fmt.Errorf("error on insert documents in batches test run: %w", err)
 		}
@@ -216,6 +135,7 @@ func (t *Tester) testInsertBatches(totalDocs, batchSize int) (*InsertBatchesTest
 
 type InsertTestResult struct {
 	ULIDDuration     time.Duration
+	UUIDDuration     time.Duration
 	ObjectIDDuration time.Duration
 }
 
@@ -237,6 +157,17 @@ func (t *Tester) testInserts(totalDocs int) (*InsertTestResult, error) {
 
 	{
 		start = time.Now()
+		if err := t.insertDocuments(generateDocsUUID(totalDocs)); err != nil {
+			return nil, fmt.Errorf("error on insert documents test run: %w", err)
+		}
+		result.UUIDDuration = time.Now().Sub(start)
+		if err := t.dropCollection(); err != nil {
+			return nil, fmt.Errorf("collection cleanup error: %w", err)
+		}
+	}
+
+	{
+		start = time.Now()
 		if err := t.insertDocuments(generateDocsObjectID(totalDocs)); err != nil {
 			return nil, fmt.Errorf("error on insert documents test run: %w", err)
 		}
@@ -250,12 +181,17 @@ func (t *Tester) testInserts(totalDocs int) (*InsertTestResult, error) {
 }
 
 type InsertBatchesWithPresentTestResult struct {
-	ULIDInsertDuration     time.Duration
-	ULIDIdxSize            int64
-	ULIDGetDuration        time.Duration
 	ObjectIDInsertDuration time.Duration
 	ObjectIDIdxSize        int64
 	ObjectIDGetDuration    time.Duration
+
+	ULIDInsertDuration time.Duration
+	ULIDIdxSize        int64
+	ULIDGetDuration    time.Duration
+
+	UUIDInsertDuration time.Duration
+	UUIDIdxSize        int64
+	UUIDGetDuration    time.Duration
 }
 
 func (t *Tester) testInsertBatchesWithPresent(insertCount, presentCount, batchSize int) (*InsertBatchesWithPresentTestResult, error) {
@@ -295,6 +231,42 @@ func (t *Tester) testInsertBatchesWithPresent(insertCount, presentCount, batchSi
 			return nil, fmt.Errorf("failed to get default id index size: %w", err)
 		} else {
 			result.ULIDIdxSize = idxSize
+		}
+
+		if err := t.dropCollection(); err != nil {
+			return nil, fmt.Errorf("collection cleanup error: %w", err)
+		}
+	}
+
+	{
+		// provisioning with fixtures
+		fixtures := generateDocsUUID(presentCount)
+		if err := t.insertDocumentsInBatches(prepareBatchSize, fixtures); err != nil {
+			return nil, fmt.Errorf("error on insert documents in batches: %w", err)
+		}
+
+		// inserting batches
+		start = time.Now()
+		if err := t.insertDocumentsInBatches(batchSize, generateDocsUUID(insertCount)); err != nil {
+			return nil, fmt.Errorf("error on insert documents in batches test run: %w", err)
+		}
+		result.UUIDInsertDuration = time.Now().Sub(start)
+
+		// getting random docs
+		getIDs := pickRandomUUID(fixtures, getProbes)
+		start = time.Now()
+		for _, id := range getIDs {
+			if err := t.getDocumentByID(id); err != nil {
+				return nil, fmt.Errorf("error on getting document by id: %w", err)
+			}
+		}
+		result.UUIDGetDuration = time.Now().Sub(start) / getProbes
+
+		// getting the index size
+		if idxSize, err := t.getDefaultIDIndexSize(); err != nil {
+			return nil, fmt.Errorf("failed to get default id index size: %w", err)
+		} else {
+			result.UUIDIdxSize = idxSize
 		}
 
 		if err := t.dropCollection(); err != nil {
@@ -429,6 +401,16 @@ func generateDocsUlid(n int) []interface{} {
 	return result
 }
 
+func generateDocsUUID(n int) []interface{} {
+	result := make([]interface{}, n)
+	for i := 0; i < n; i++ {
+		result[i] = mongoDocumentUUID{
+			ID: uuid.New(),
+		}
+	}
+	return result
+}
+
 func generateDocsObjectID(n int) []interface{} {
 	result := make([]interface{}, n)
 	for i := 0; i < n; i++ {
@@ -459,6 +441,16 @@ func pickRandomULID(docs []interface{}, n int) []ulid.ULID {
 	for i := 0; i < n; i++ {
 		d := docs[rand.Intn(docsLen)]
 		result[i] = d.(mongoDocumentULID).ID
+	}
+	return result
+}
+
+func pickRandomUUID(docs []interface{}, n int) []uuid.UUID {
+	docsLen := len(docs)
+	var result = make([]uuid.UUID, n)
+	for i := 0; i < n; i++ {
+		d := docs[rand.Intn(docsLen)]
+		result[i] = d.(mongoDocumentUUID).ID
 	}
 	return result
 }

@@ -3,6 +3,7 @@ module github.com/icamys/mongo.ULID-vs-ObjectID
 go 1.20
 
 require (
+	github.com/google/uuid v1.3.0
 	github.com/oklog/ulid/v2 v2.1.0
 	go.mongodb.org/mongo-driver v1.11.3
 )

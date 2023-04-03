@@ -28,4 +28,4 @@ run:
 	@echo "> Running the test..."
 	@echo ""
 	@MONGO_URI="mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@localhost:27017" \
-		go run perftest.go tests.go
+		go run perftest.go tests.go printer.go
