@@ -38,7 +38,7 @@ func PrintTable(r *TesterResults) {
 			"1M inserts batched, batch size = 1k",
 			r.InsertsBatched1M1K.ObjectIDDuration.Round(1 * time.Millisecond).String(),
 			r.InsertsBatched1M1K.ULIDDuration.Round(1 * time.Millisecond).String(),
-			fmt.Sprintf("%.2f%%", calcTimeDiffPercent(
+			fmt.Sprintf("%.2f%%", calcDiffPercent(
 				r.InsertsBatched1M1K.ObjectIDDuration.Microseconds(),
 				r.InsertsBatched1M1K.ULIDDuration.Microseconds(),
 			)),
@@ -47,7 +47,7 @@ func PrintTable(r *TesterResults) {
 			"1M inserts batched, batch size = 5k",
 			r.InsertsBatched1M5K.ObjectIDDuration.Round(1 * time.Millisecond).String(),
 			r.InsertsBatched1M5K.ULIDDuration.Round(1 * time.Millisecond).String(),
-			fmt.Sprintf("%.2f%%", calcTimeDiffPercent(
+			fmt.Sprintf("%.2f%%", calcDiffPercent(
 				r.InsertsBatched1M5K.ObjectIDDuration.Microseconds(),
 				r.InsertsBatched1M5K.ULIDDuration.Microseconds(),
 			)),
@@ -56,7 +56,7 @@ func PrintTable(r *TesterResults) {
 			"1M inserts batched, batch size = 10k",
 			r.InsertsBatched1M10K.ObjectIDDuration.Round(1 * time.Millisecond).String(),
 			r.InsertsBatched1M10K.ULIDDuration.Round(1 * time.Millisecond).String(),
-			fmt.Sprintf("%.2f%%", calcTimeDiffPercent(
+			fmt.Sprintf("%.2f%%", calcDiffPercent(
 				r.InsertsBatched1M10K.ObjectIDDuration.Microseconds(),
 				r.InsertsBatched1M10K.ULIDDuration.Microseconds(),
 			)),
@@ -65,7 +65,7 @@ func PrintTable(r *TesterResults) {
 			"1M inserts",
 			r.Insert1M.ObjectIDDuration.Round(1 * time.Millisecond).String(),
 			r.Insert1M.ULIDDuration.Round(1 * time.Millisecond).String(),
-			fmt.Sprintf("%.2f%%", calcTimeDiffPercent(
+			fmt.Sprintf("%.2f%%", calcDiffPercent(
 				r.Insert1M.ObjectIDDuration.Microseconds(),
 				r.Insert1M.ULIDDuration.Microseconds(),
 			)),
@@ -74,7 +74,7 @@ func PrintTable(r *TesterResults) {
 			"10M inserts batched, 10M documents already present, batch size = 10k",
 			r.InsertsBatchedPres10M10K.ObjectIDInsertDuration.Round(1 * time.Millisecond).String(),
 			r.InsertsBatchedPres10M10K.ULIDInsertDuration.Round(1 * time.Millisecond).String(),
-			fmt.Sprintf("%.2f%%", calcTimeDiffPercent(
+			fmt.Sprintf("%.2f%%", calcDiffPercent(
 				r.InsertsBatchedPres10M10K.ObjectIDInsertDuration.Microseconds(),
 				r.InsertsBatchedPres10M10K.ULIDInsertDuration.Microseconds(),
 			)),
@@ -83,7 +83,7 @@ func PrintTable(r *TesterResults) {
 			"10M inserts batched, 10M documents already present, batch size = 100k",
 			r.InsertsBatchedPres10M100K.ObjectIDInsertDuration.Round(1 * time.Millisecond).String(),
 			r.InsertsBatchedPres10M100K.ULIDInsertDuration.Round(1 * time.Millisecond).String(),
-			fmt.Sprintf("%.2f%%", calcTimeDiffPercent(
+			fmt.Sprintf("%.2f%%", calcDiffPercent(
 				r.InsertsBatchedPres10M100K.ObjectIDInsertDuration.Microseconds(),
 				r.InsertsBatchedPres10M100K.ULIDInsertDuration.Microseconds(),
 			)),
@@ -92,14 +92,14 @@ func PrintTable(r *TesterResults) {
 			"Index size with 20M docs in bytes",
 			byteCountIEC(r.InsertsBatchedPres10M100K.ObjectIDIdxSize),
 			byteCountIEC(r.InsertsBatchedPres10M100K.ULIDIdxSize),
-			fmt.Sprintf("%.2f%%", calcTimeDiffPercent(
+			fmt.Sprintf("%.2f%%", calcDiffPercent(
 				r.InsertsBatchedPres10M100K.ObjectIDIdxSize, r.InsertsBatchedPres10M100K.ULIDIdxSize)),
 		},
 		[4]string{
 			"Get by ID from 20M docs, avg duration",
 			r.InsertsBatchedPres10M100K.ObjectIDGetDuration.Round(1 * time.Microsecond).String(),
 			r.InsertsBatchedPres10M100K.ULIDGetDuration.Round(1 * time.Microsecond).String(),
-			fmt.Sprintf("%.2f%%", calcTimeDiffPercent(
+			fmt.Sprintf("%.2f%%", calcDiffPercent(
 				r.InsertsBatchedPres10M100K.ObjectIDGetDuration.Microseconds(),
 				r.InsertsBatchedPres10M100K.ULIDGetDuration.Microseconds(),
 			)),
@@ -129,13 +129,13 @@ func PrintTable(r *TesterResults) {
 	}
 }
 
-func calcTimeDiffPercent(v1, v2 int64) float64 {
+func calcDiffPercent(baseline, newVal int64) float64 {
 	var k float64 = 1
-	if v2 > v1 {
+	if newVal > baseline {
 		k = -1
 	}
 
-	return k * (float64(v2) - float64(v1)) * 100 / float64(v1)
+	return k * (float64(newVal) - float64(baseline)) * 100 / float64(baseline)
 }
 
 type Tester struct {
